@@ -124,6 +124,8 @@ const CallRecorder: React.FC<CallRecorderProps> = ({
 
   // Pure function: Start recording
   const startRecording = async () => {
+    console.log('%c🎬 START RECORDING CALLED!', 'background: red; color: white; font-size: 16px; padding: 5px;');
+    
     if (!streamRef.current) {
       const permitted = await requestPermission();
       if (!permitted) return;
@@ -137,12 +139,14 @@ const CallRecorder: React.FC<CallRecorderProps> = ({
       const chunks: Blob[] = [];
       
       recorder.ondataavailable = (event) => {
+        console.log('📦 Data chunk received:', event.data.size, 'bytes');
         if (event.data.size > 0) {
           chunks.push(event.data);
         }
       };
       
       recorder.onstop = async () => {
+        console.log('%c🛑 RECORDER STOPPED!', 'background: orange; color: white; font-size: 16px; padding: 5px;');
         const audioBlob = new Blob(chunks, { type: 'audio/webm' });
         const audioUrl = URL.createObjectURL(audioBlob);
         
@@ -159,6 +163,7 @@ const CallRecorder: React.FC<CallRecorderProps> = ({
         setTimeout(() => {
           onProcessingChange(false);
           console.log('🔥 Calling onCallComplete with:', audioUrl, recordingTime);
+          console.log('%c🚀 CALLING COMPLETION CALLBACK!', 'background: green; color: white; font-size: 16px; padding: 5px;');
           // Call the completion handler with audio URL and duration
           onCallComplete(audioUrl, recordingTime);
         }, 2000);
@@ -166,17 +171,22 @@ const CallRecorder: React.FC<CallRecorderProps> = ({
       
       recorderRef.current = recorder;
       recorder.start();
+      console.log('✅ MediaRecorder started successfully');
       onRecordingChange(true);
     } catch (error) {
-      console.error('Recording failed:', error);
+      console.error('❌ Recording failed:', error);
     }
   };
 
   // Pure function: Stop recording
   const stopRecording = () => {
+    console.log('%c⏹️ STOP RECORDING CALLED!', 'background: red; color: white; font-size: 16px; padding: 5px;');
     if (recorderRef.current && recorderRef.current.state === 'recording') {
+      console.log('🛑 Stopping MediaRecorder...');
       recorderRef.current.stop();
       onRecordingChange(false);
+    } else {
+      console.log('⚠️ No active recorder to stop');
     }
   };
 

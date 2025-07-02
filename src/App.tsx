@@ -91,6 +91,8 @@ const App: React.FC = () => {
   // Handle completed call
   const handleCallComplete = (audioUrl: string, duration: number) => {
     console.log('🎯 Call completed:', { audioUrl, duration });
+    console.log('%c📞 CALL COMPLETION TRIGGERED!', 'background: green; color: white; font-size: 16px; padding: 5px;');
+    alert(`Call completed! Duration: ${duration} seconds`);
     
     const newCall: CallData = {
       id: `call_${Date.now()}`,
@@ -109,12 +111,14 @@ const App: React.FC = () => {
     setCalls(prevCalls => {
       const updatedCalls = [newCall, ...prevCalls];
       console.log('📋 Updated calls:', updatedCalls.length, updatedCalls);
+      console.log('%c✅ CALLS STATE UPDATED!', 'background: blue; color: white; font-size: 16px; padding: 5px;');
       return updatedCalls;
     });
     
     // Auto-switch to history to show the new call
     setTimeout(() => {
       console.log('🔄 Switching to history view');
+      console.log('%c🔄 SWITCHING TO HISTORY TAB!', 'background: purple; color: white; font-size: 16px; padding: 5px;');
       setCurrentView('history');
     }, 1000);
   };
