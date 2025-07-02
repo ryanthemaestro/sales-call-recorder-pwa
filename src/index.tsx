@@ -6,6 +6,7 @@ import reportWebVitals from './reportWebVitals';
 
 console.log('%c🔥 REACT APP STARTING!', 'background: red; color: white; font-size: 24px; padding: 10px;');
 console.log('index.tsx executing, React version:', React.version);
+console.log('Build timestamp:', new Date().toISOString());
 
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement
