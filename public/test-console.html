@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Console Test</title>
+</head>
+<body>
+    <h1>Console Logging Test</h1>
+    <p>Check the browser console for messages.</p>
+    
+    <script>
+        console.log('%c🔥 SIMPLE TEST LOADED!', 'background: red; color: white; font-size: 24px; padding: 10px;');
+        console.log('This is a basic console.log test');
+        console.log('Current time:', new Date().toISOString());
+        
+        function testLog() {
+            console.log('%c✅ BUTTON CLICKED!', 'background: green; color: white; font-size: 16px; padding: 5px;');
+            alert('Button clicked! Check console.');
+        }
+    </script>
+    
+    <button onclick="testLog()">Click to Test Console</button>
+</body>
+</html> 
