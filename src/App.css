@@ -1,38 +1,367 @@
-.App {
-  text-align: center;
+/* McMaster Minimization Principles: Clean, Functional, Essential */
+
+:root {
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --background: #ffffff;
+  --surface: #f8fafc;
+  --border: #e2e8f0;
+  --text: #1e293b;
+  --text-secondary: #64748b;
+  --recording: #dc2626;
+  --success: #059669;
+  --radius: 8px;
+  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+  --font-system: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
+body {
+  font-family: var(--font-system);
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--background);
 }
 
-.App-header {
-  background-color: #282c34;
+/* App Container - Clean Structure */
+.app {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+/* Header - Essential Info Only */
+.app-header {
+  padding: 24px 0;
+  text-align: center;
+  border-bottom: 1px solid var(--border);
+}
+
+.app-header h1 {
+  font-size: 24px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.status-indicator {
+  height: 24px;
+  display: flex;
   justify-content: center;
-  font-size: calc(10px + 2vmin);
+  align-items: center;
+}
+
+.recording-pulse {
+  color: var(--recording);
+  font-weight: 500;
+  animation: pulse 2s ease-in-out infinite alternate;
+}
+
+@keyframes pulse {
+  from { opacity: 1; }
+  to { opacity: 0.4; }
+}
+
+/* Navigation - Binary Choice */
+.simple-nav {
+  display: flex;
+  gap: 2px;
+  padding: 16px 0;
+  background: var(--surface);
+  border-radius: var(--radius);
+  margin: 16px 0;
+}
+
+.nav-btn {
+  flex: 1;
+  padding: 12px 16px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: calc(var(--radius) - 2px);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.nav-btn:hover {
+  background: var(--background);
+  color: var(--text);
+}
+
+.nav-btn.active {
+  background: var(--primary);
   color: white;
+  box-shadow: var(--shadow);
 }
 
-.App-link {
-  color: #61dafb;
+/* Main Content - Single Focus */
+.app-main {
+  flex: 1;
+  padding: 24px 0;
 }
 
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
+/* Call Recorder - Pure Function */
+.call-recorder {
+  text-align: center;
+  padding: 32px;
+  background: var(--surface);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+}
+
+.recorder-status {
+  margin-bottom: 24px;
+}
+
+.recorder-status h2 {
+  font-size: 18px;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+.recorder-status p {
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.audio-visualizer {
+  margin: 24px 0;
+}
+
+.audio-level-bar {
+  width: 100%;
+  height: 8px;
+  background: var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.audio-level-fill {
+  height: 100%;
+  background: var(--success);
+  transition: width 0.1s ease;
+  border-radius: 4px;
+}
+
+.audio-visualizer p {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.recorder-controls {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin: 24px 0;
+}
+
+.control-btn {
+  padding: 12px 24px;
+  border: 1px solid var(--border);
+  background: var(--background);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.control-btn:hover {
+  background: var(--surface);
+  border-color: var(--primary);
+}
+
+.control-btn.primary {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+
+.control-btn.primary:hover {
+  background: var(--primary-hover);
+}
+
+.control-btn.recording {
+  background: var(--recording);
+  color: white;
+  border-color: var(--recording);
+  animation: pulse 2s ease-in-out infinite alternate;
+}
+
+.control-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.recorder-info {
+  margin-top: 16px;
+  padding: 16px;
+  background: var(--background);
+  border-radius: calc(var(--radius) - 2px);
+  border: 1px solid var(--border);
+}
+
+.recorder-info p {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+.recorder-info p:last-child {
+  margin-bottom: 0;
+}
+
+/* Call History - Clean List */
+.call-history {
+  background: var(--surface);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.call-history h2 {
+  font-size: 18px;
+  font-weight: 500;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--background);
+}
+
+.history-empty {
+  padding: 48px 20px;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.call-item {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: background 0.2s ease;
+}
+
+.call-item:hover {
+  background: var(--background);
+}
+
+.call-item:last-child {
+  border-bottom: none;
+}
+
+.call-info h3 {
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.call-meta {
+  font-size: 12px;
+  color: var(--text-secondary);
+  display: flex;
+  gap: 12px;
+}
+
+.call-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.action-btn {
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  background: var(--background);
+  color: var(--text-secondary);
+  font-size: 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.action-btn:hover {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+
+/* Install Prompt - Minimal */
+.install-prompt {
+  background: var(--primary);
+  color: white;
+  padding: 12px 16px;
+  border-radius: var(--radius);
+  margin-bottom: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.install-prompt button {
+  background: white;
+  color: var(--primary);
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.install-prompt .dismiss {
+  background: transparent;
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+/* Responsive - Mobile First */
+@media (max-width: 640px) {
+  .app {
+    padding: 0 12px;
   }
-  to {
-    transform: rotate(360deg);
+  
+  .app-header {
+    padding: 16px 0;
+  }
+  
+  .app-header h1 {
+    font-size: 20px;
+  }
+  
+  .call-recorder {
+    padding: 24px 16px;
+  }
+  
+  .recorder-controls {
+    flex-direction: column;
+  }
+  
+  .control-btn {
+    justify-content: center;
+  }
+  
+  .call-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  
+  .call-actions {
+    align-self: stretch;
+    justify-content: flex-end;
   }
 }
