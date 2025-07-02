@@ -1,94 +1,111 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 
-interface CallData {
-  id: string;
-  timestamp: string;
-  duration: number;
-  audioUrl?: string;
-  transcript?: string;
-  leadScore?: number;
-}
-
+// Pure interfaces - minimal and focused
 interface CallRecorderProps {
   isRecording: boolean;
-  setIsRecording: (recording: boolean) => void;
-  onCallComplete: (callData: CallData) => void;
+  isProcessing: boolean;
+  onRecordingChange: (recording: boolean) => void;
+  onProcessingChange: (processing: boolean) => void;
+  recordingTime: number;
+  onCallComplete: (audioUrl: string, duration: number) => void;
 }
 
-// Pure function for formatting time
-const formatTime = (seconds: number): string => {
-  const mins = Math.floor(seconds / 60);
-  const secs = seconds % 60;
-  return `${mins}:${secs.toString().padStart(2, '0')}`;
+// Pure utility functions
+const formatAudioLevel = (level: number): number => {
+  return Math.min(Math.max(level * 100, 0), 100);
 };
 
-// Pure function for calculating audio level percentage
-const calculateAudioLevel = (dataArray: Uint8Array): number => {
-  const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
-  return Math.round((average / 255) * 100);
+const generateAudioBars = (count: number = 15): number[] => {
+  return Array.from({ length: count }, () => Math.random() * 100);
 };
 
-// Pure function for call detection
-const detectCallPattern = (average: number, threshold: number = 25): boolean => {
-  return average > threshold;
-};
-
-const CallRecorder: React.FC<CallRecorderProps> = ({ 
-  isRecording, 
-  setIsRecording, 
-  onCallComplete 
-}) => {
-  // Minimal state - only essentials
-  const [audioLevel, setAudioLevel] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [isSetup, setIsSetup] = useState(false);
+const createAudioVisualizer = (analyser: AnalyserNode | null): number[] => {
+  if (!analyser) return generateAudioBars();
   
-  // Refs for audio handling
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
+  const dataArray = new Uint8Array(analyser.frequencyBinCount);
+  analyser.getByteFrequencyData(dataArray);
+  
+  const bars = 15;
+  const step = Math.floor(dataArray.length / bars);
+  
+  return Array.from({ length: bars }, (_, i) => {
+    const start = i * step;
+    const end = start + step;
+    const slice = dataArray.slice(start, end);
+    const average = slice.reduce((sum, value) => sum + value, 0) / slice.length;
+    return (average / 255) * 100;
+  });
+};
+
+const CallRecorder: React.FC<CallRecorderProps> = ({
+  isRecording,
+  isProcessing,
+  onRecordingChange,
+  onProcessingChange,
+  recordingTime,
+  onCallComplete
+}) => {
+  // State management - minimal and pure
+  const [hasPermission, setHasPermission] = useState(false);
+  const [audioLevel, setAudioLevel] = useState(0);
+  const [audioBars, setAudioBars] = useState<number[]>(generateAudioBars());
+
+  // Refs for media handling
   const streamRef = useRef<MediaStream | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
-  const durationIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
 
-  // Setup audio monitoring on mount
+  // Audio visualization effect
   useEffect(() => {
-    setupAudio();
-    return cleanup;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Handle recording duration timer
-  useEffect(() => {
-    if (isRecording) {
-      durationIntervalRef.current = setInterval(() => {
-        setDuration(prev => prev + 1);
-      }, 1000);
+    let animationFrame: number;
+    
+    if (isRecording && analyserRef.current) {
+      const updateVisualization = () => {
+        const bars = createAudioVisualizer(analyserRef.current);
+        setAudioBars(bars);
+        
+        // Calculate overall audio level
+        const avgLevel = bars.reduce((sum, bar) => sum + bar, 0) / bars.length;
+        setAudioLevel(avgLevel);
+        
+        animationFrame = requestAnimationFrame(updateVisualization);
+      };
+      
+      updateVisualization();
     } else {
-      if (durationIntervalRef.current) {
-        clearInterval(durationIntervalRef.current);
-        durationIntervalRef.current = null;
-      }
-      setDuration(0);
+      // Reset to subtle animation when not recording
+      setAudioBars(generateAudioBars().map(bar => bar * 0.1));
+      setAudioLevel(0);
     }
+    
+    return () => {
+      if (animationFrame) {
+        cancelAnimationFrame(animationFrame);
+      }
+    };
   }, [isRecording]);
 
-  const setupAudio = async (): Promise<void> => {
+  // Pure function: Request microphone permission
+  const requestPermission = async (): Promise<boolean> => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
-          echoCancellation: false,
-          noiseSuppression: false,
-          autoGainControl: false,
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
           sampleRate: 44100
         }
       });
-
+      
       streamRef.current = stream;
       
-      const audioContext = new AudioContext();
-      const source = audioContext.createMediaStreamSource(stream);
+      // Set up audio analysis
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
       const analyser = audioContext.createAnalyser();
+      const source = audioContext.createMediaStreamSource(stream);
       
       analyser.fftSize = 256;
       source.connect(analyser);
@@ -96,97 +113,75 @@ const CallRecorder: React.FC<CallRecorderProps> = ({
       audioContextRef.current = audioContext;
       analyserRef.current = analyser;
       
-      setIsSetup(true);
-      startAudioMonitoring();
-      
+      setHasPermission(true);
+      return true;
     } catch (error) {
-      console.error('Audio setup failed:', error);
+      console.error('Microphone permission denied:', error);
+      setHasPermission(false);
+      return false;
     }
   };
 
-  const startAudioMonitoring = (): void => {
-    const analyser = analyserRef.current;
-    if (!analyser) return;
+  // Pure function: Start recording
+  const startRecording = async () => {
+    if (!streamRef.current) {
+      const permitted = await requestPermission();
+      if (!permitted) return;
+    }
 
-    const dataArray = new Uint8Array(analyser.frequencyBinCount);
-    
-    const monitor = () => {
-      analyser.getByteFrequencyData(dataArray);
+    try {
+      const recorder = new MediaRecorder(streamRef.current!, {
+        mimeType: 'audio/webm;codecs=opus'
+      });
       
-      const level = calculateAudioLevel(dataArray);
-      setAudioLevel(level);
+      const chunks: Blob[] = [];
       
-      // Auto-detect calls (simplified)
-      const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
-      const callDetected = detectCallPattern(average);
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          chunks.push(event.data);
+        }
+      };
       
-      if (callDetected && !isRecording && isSetup) {
-        handleAutoStart();
-      } else if (!callDetected && isRecording) {
-        handleAutoStop();
-      }
-
-      requestAnimationFrame(monitor);
-    };
-
-    monitor();
-  };
-
-  const handleAutoStart = (): void => {
-    console.log('📞 Call detected - auto recording');
-    startRecording();
-  };
-
-  const handleAutoStop = (): void => {
-    if (duration > 10) { // Only stop if call was longer than 10 seconds
-      console.log('📞 Call ended - stopping recording');
-      stopRecording();
+      recorder.onstop = async () => {
+        const audioBlob = new Blob(chunks, { type: 'audio/webm' });
+        const audioUrl = URL.createObjectURL(audioBlob);
+        
+        console.log('🎙️ Recording stopped, audio URL:', audioUrl);
+        console.log('⏱️ Recording duration:', recordingTime);
+        
+        if (audioRef.current) {
+          audioRef.current.src = audioUrl;
+        }
+        
+        onProcessingChange(true);
+        
+        // Simulate processing time then save the call
+        setTimeout(() => {
+          onProcessingChange(false);
+          console.log('🔥 Calling onCallComplete with:', audioUrl, recordingTime);
+          // Call the completion handler with audio URL and duration
+          onCallComplete(audioUrl, recordingTime);
+        }, 2000);
+      };
+      
+      recorderRef.current = recorder;
+      recorder.start();
+      onRecordingChange(true);
+    } catch (error) {
+      console.error('Recording failed:', error);
     }
   };
 
-  const startRecording = (): void => {
-    if (!streamRef.current) return;
-    
-    audioChunksRef.current = [];
-    
-    const mediaRecorder = new MediaRecorder(streamRef.current);
-    mediaRecorderRef.current = mediaRecorder;
-    
-    mediaRecorder.ondataavailable = (event) => {
-      if (event.data.size > 0) {
-        audioChunksRef.current.push(event.data);
-      }
-    };
-    
-    mediaRecorder.onstop = () => {
-      const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-      processRecording(audioBlob);
-    };
-    
-    mediaRecorder.start();
-    setIsRecording(true);
-  };
-
-  const stopRecording = (): void => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
+  // Pure function: Stop recording
+  const stopRecording = () => {
+    if (recorderRef.current && recorderRef.current.state === 'recording') {
+      recorderRef.current.stop();
+      onRecordingChange(false);
     }
   };
 
-  const processRecording = (audioBlob: Blob): void => {
-    const audioUrl = URL.createObjectURL(audioBlob);
-    const callData: CallData = {
-      id: `call_${Date.now()}`,
-      timestamp: new Date().toISOString(),
-      duration,
-      audioUrl
-    };
-    
-    onCallComplete(callData);
-  };
-
-  const toggleRecording = (): void => {
+  // Pure function: Toggle recording
+  const toggleRecording = () => {
     if (isRecording) {
       stopRecording();
     } else {
@@ -194,65 +189,115 @@ const CallRecorder: React.FC<CallRecorderProps> = ({
     }
   };
 
-  const cleanup = (): void => {
-    if (durationIntervalRef.current) {
-      clearInterval(durationIntervalRef.current);
-    }
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-    }
-    if (audioContextRef.current) {
-      audioContextRef.current.close();
-    }
-  };
+  // Cleanup effect
+  useEffect(() => {
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+      }
+    };
+  }, []);
 
-  return (
-    <div className="call-recorder">
-      <div className="recorder-status">
-        <h2>
-          {isRecording ? '🔴 Recording' : isSetup ? '🎙️ Ready' : '⚡ Setting up...'}
-        </h2>
-        <p>
-          {isRecording 
-            ? `Duration: ${formatTime(duration)}` 
-            : 'Automatically detects and records calls'
-          }
-        </p>
+  // Pure render functions
+  const renderPermissionPrompt = () => (
+    <div className="recording-interface">
+      <div className="recording-visual">
+        <span>MIC</span>
       </div>
-
-      {/* Audio Level Visualizer */}
-      <div className="audio-visualizer">
-        <div className="audio-level-bar">
-          <div 
-            className="audio-level-fill" 
-            style={{ width: `${audioLevel}%` }}
-          />
-        </div>
-        <p>Audio Level: {audioLevel}%</p>
-      </div>
-
-      {/* Simple Controls */}
-      <div className="recorder-controls">
-        <button
-          className={`control-btn ${isRecording ? 'recording' : 'primary'}`}
-          onClick={toggleRecording}
-          disabled={!isSetup}
-        >
-          {isRecording ? '⏹️ Stop' : '🎙️ Start'} Recording
-        </button>
-      </div>
-
-      {/* Status Info */}
-      <div className="recorder-info">
-        <p>
-          🔊 {isSetup ? 'Microphone ready' : 'Setting up microphone...'}
-        </p>
-        <p>
-          🤖 Auto-detection: {audioLevel > 25 ? 'Call detected' : 'Listening...'}
-        </p>
-      </div>
+      
+      <h3 className="recording-time">Microphone Access Required</h3>
+      <p className="recording-status">
+        Allow microphone access to start recording sales calls
+      </p>
+      
+      <button 
+        className="btn btn-primary btn-large"
+        onClick={requestPermission}
+      >
+        Enable Microphone
+      </button>
     </div>
   );
+
+  const renderAudioVisualizer = () => (
+    <div className="audio-visualizer">
+      {audioBars.map((height, index) => (
+        <div
+          key={index}
+          className="audio-bar"
+          style={{ 
+            height: `${Math.max(height, 5)}%`
+          }}
+        />
+      ))}
+    </div>
+  );
+
+  const renderRecordingInterface = () => (
+    <div className="recording-interface">
+      <div className={`recording-visual ${isRecording ? 'active' : ''}`}>
+        <span>{isRecording ? 'REC' : 'MIC'}</span>
+      </div>
+      
+      <h3 className="recording-time">
+        {recordingTime > 0 ? 
+          `${Math.floor(recordingTime / 60)}:${(recordingTime % 60).toString().padStart(2, '0')}` : 
+          '00:00'
+        }
+      </h3>
+      
+      <p className="recording-status">
+        {isRecording ? 'Recording in progress...' : 'Ready to record'}
+      </p>
+      
+      {renderAudioVisualizer()}
+      
+      <div className="button-group">
+        <button 
+          className={`btn ${isRecording ? 'btn-danger' : 'btn-primary'} btn-large`}
+          onClick={toggleRecording}
+          disabled={isProcessing}
+        >
+          {isRecording ? 'Stop Recording' : 'Start Recording'}
+        </button>
+        
+        {recordingTime > 0 && !isRecording && (
+          <button 
+            className="btn btn-secondary"
+            onClick={() => audioRef.current?.play()}
+          >
+            Play Back
+          </button>
+        )}
+      </div>
+      
+      {isProcessing && (
+        <div className="status-indicator status-processing">
+          Processing audio...
+        </div>
+      )}
+      
+      <audio 
+        ref={audioRef} 
+        controls 
+        style={{ 
+          marginTop: '1rem', 
+          width: '100%',
+          display: recordingTime > 0 && !isRecording ? 'block' : 'none'
+        }}
+      />
+    </div>
+  );
+
+  // Main render
+  if (!hasPermission) {
+    return renderPermissionPrompt();
+  }
+
+  return renderRecordingInterface();
 };
 
 export default CallRecorder; 

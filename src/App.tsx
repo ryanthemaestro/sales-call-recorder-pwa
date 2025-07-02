@@ -4,7 +4,7 @@ import CallRecorder from './components/CallRecorder';
 import CallHistory from './components/CallHistory';
 import InstallPrompt from './components/InstallPrompt';
 
-// Pure data interface - minimal, focused
+// Call data interface
 interface CallData {
   id: string;
   timestamp: string;
@@ -12,112 +12,207 @@ interface CallData {
   audioUrl?: string;
   transcript?: string;
   leadScore?: number;
+  customerName?: string;
+  callType?: string;
 }
 
-// Pure state interface - single responsibility
-interface AppState {
-  calls: CallData[];
-  isRecording: boolean;
-  currentView: 'record' | 'history';
-}
-
-// Pure function for initial state
-const createInitialState = (): AppState => ({
-  calls: [],
-  isRecording: false,
-  currentView: 'record'
-});
-
-// Pure function for loading saved calls
-const loadSavedCalls = (): CallData[] => {
-  try {
-    const saved = localStorage.getItem('salesCalls');
-    return saved ? JSON.parse(saved) : [];
-  } catch {
-    return [];
-  }
+// Pure utility functions - minimal and focused
+const formatTime = (seconds: number): string => {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 };
 
-// Pure function for saving calls
-const saveCalls = (calls: CallData[]): void => {
-  localStorage.setItem('salesCalls', JSON.stringify(calls));
+const getStatusText = (isRecording: boolean, isProcessing: boolean): string => {
+  if (isRecording) return 'Recording';
+  if (isProcessing) return 'Processing';
+  return 'Ready';
 };
 
-function App() {
-  const [state, setState] = useState<AppState>(createInitialState);
+const getStatusClass = (isRecording: boolean, isProcessing: boolean): string => {
+  if (isRecording) return 'status-recording';
+  if (isProcessing) return 'status-processing';
+  return 'status-ready';
+};
 
-  // Load calls on mount - single effect
+// Generate a simple lead score for demo
+const generateLeadScore = (duration: number): number => {
+  // Simple algorithm: longer calls = higher scores
+  if (duration > 900) return Math.floor(Math.random() * 20) + 80; // 80-100
+  if (duration > 300) return Math.floor(Math.random() * 30) + 60; // 60-90
+  return Math.floor(Math.random() * 40) + 40; // 40-80
+};
+
+const App: React.FC = () => {
+  const [currentView, setCurrentView] = useState<'record' | 'history'>('record');
+  const [isRecording, setIsRecording] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const [calls, setCalls] = useState<CallData[]>([]);
+
+  // Load calls from localStorage on mount
   useEffect(() => {
-    setState(prev => ({
-      ...prev,
-      calls: loadSavedCalls()
-    }));
+    try {
+      const savedCalls = localStorage.getItem('salesCalls');
+      if (savedCalls) {
+        setCalls(JSON.parse(savedCalls));
+      }
+    } catch (error) {
+      console.error('Failed to load calls:', error);
+    }
   }, []);
 
-  // Save calls when they change - pure side effect
+  // Save calls to localStorage when calls change
   useEffect(() => {
-    if (state.calls.length > 0) {
-      saveCalls(state.calls);
+    try {
+      localStorage.setItem('salesCalls', JSON.stringify(calls));
+    } catch (error) {
+      console.error('Failed to save calls:', error);
     }
-  }, [state.calls]);
+  }, [calls]);
 
-  // Pure function handlers
-  const addCall = (newCall: CallData): void => {
-    setState(prev => ({
-      ...prev,
-      calls: [newCall, ...prev.calls]
-    }));
+  // Timer effect
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    
+    if (isRecording) {
+      interval = setInterval(() => {
+        setRecordingTime(prev => prev + 1);
+      }, 1000);
+    } else {
+      setRecordingTime(0);
+    }
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isRecording]);
+
+  // Handle completed call
+  const handleCallComplete = (audioUrl: string, duration: number) => {
+    console.log('🎯 Call completed:', { audioUrl, duration });
+    
+    const newCall: CallData = {
+      id: `call_${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      duration,
+      audioUrl,
+      customerName: `Customer ${calls.length + 1}`,
+      callType: 'Sales Call',
+      leadScore: generateLeadScore(duration),
+      transcript: `Call recording of ${Math.floor(duration / 60)}:${(duration % 60).toString().padStart(2, '0')} completed successfully. Analysis pending...`
+    };
+
+    console.log('📞 Adding new call:', newCall);
+    console.log('📋 Current calls before:', calls.length);
+
+    setCalls(prevCalls => {
+      const updatedCalls = [newCall, ...prevCalls];
+      console.log('📋 Updated calls:', updatedCalls.length, updatedCalls);
+      return updatedCalls;
+    });
+    
+    // Auto-switch to history to show the new call
+    setTimeout(() => {
+      console.log('🔄 Switching to history view');
+      setCurrentView('history');
+    }, 1000);
   };
 
-  const setRecording = (isRecording: boolean): void => {
-    setState(prev => ({ ...prev, isRecording }));
-  };
+  // PWA Install Detection
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      // Store the event for later use
+    };
 
-  const setView = (currentView: 'record' | 'history'): void => {
-    setState(prev => ({ ...prev, currentView }));
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+  }, []);
+
+  const renderHeader = () => (
+    <header className="app-header">
+      <div className="header-container">
+        <div className="logo">Sales Call Recorder</div>
+        
+        <div className="nav-buttons">
+          <button 
+            className={`nav-button ${currentView === 'record' ? 'active' : ''}`}
+            onClick={() => setCurrentView('record')}
+          >
+            Record
+          </button>
+          <button 
+            className={`nav-button ${currentView === 'history' ? 'active' : ''}`}
+            onClick={() => setCurrentView('history')}
+          >
+            History ({calls.length})
+          </button>
+        </div>
+      </div>
+    </header>
+  );
+
+  const renderStatusBar = () => (
+    <div className={`status-indicator ${getStatusClass(isRecording, isProcessing)}`}>
+      <span>{getStatusText(isRecording, isProcessing)}</span>
+      {isRecording && <span>{formatTime(recordingTime)}</span>}
+    </div>
+  );
+
+  const renderMainContent = () => {
+    switch (currentView) {
+      case 'record':
+        return (
+          <div className="card">
+            <div className="card-header">
+              <h1 className="card-title">Record Sales Call</h1>
+              <p className="card-subtitle">
+                Capture and analyze your sales conversations
+              </p>
+              {renderStatusBar()}
+            </div>
+            
+            <CallRecorder 
+              isRecording={isRecording}
+              isProcessing={isProcessing}
+              onRecordingChange={setIsRecording}
+              onProcessingChange={setIsProcessing}
+              recordingTime={recordingTime}
+              onCallComplete={handleCallComplete}
+            />
+          </div>
+        );
+        
+      case 'history':
+        return (
+          <div className="card">
+            <div className="card-header">
+              <h1 className="card-title">Call History</h1>
+              <p className="card-subtitle">
+                Review your recorded calls
+              </p>
+            </div>
+            
+            <CallHistory calls={calls} />
+          </div>
+        );
+        
+      default:
+        return null;
+    }
   };
 
   return (
     <div className="app">
-      <header className="app-header">
-        <h1>📞 Sales Call Recorder</h1>
-        <div className="status-indicator">
-          {state.isRecording && <span className="recording-pulse">🔴 Recording</span>}
-        </div>
-      </header>
-
-      <InstallPrompt />
-
-      {/* Minimal navigation - binary choice */}
-      <nav className="simple-nav">
-        <button 
-          className={`nav-btn ${state.currentView === 'record' ? 'active' : ''}`}
-          onClick={() => setView('record')}
-        >
-          🎙️ Record
-        </button>
-        <button 
-          className={`nav-btn ${state.currentView === 'history' ? 'active' : ''}`}
-          onClick={() => setView('history')}
-        >
-          📋 History ({state.calls.length})
-        </button>
-      </nav>
-
-      {/* Pure component rendering - single responsibility */}
-      <main className="app-main">
-        {state.currentView === 'record' ? (
-          <CallRecorder 
-            onCallComplete={addCall} 
-            isRecording={state.isRecording}
-            setIsRecording={setRecording}
-          />
-        ) : (
-          <CallHistory calls={state.calls} />
-        )}
+      {renderHeader()}
+      
+      <main className="main-content">
+        <InstallPrompt />
+        {renderMainContent()}
       </main>
     </div>
   );
-}
+};
 
 export default App;
