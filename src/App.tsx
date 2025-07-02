@@ -44,11 +44,17 @@ const generateLeadScore = (duration: number): number => {
 };
 
 const App: React.FC = () => {
+  console.log('%c🚀 APP COMPONENT LOADED!', 'background: navy; color: white; font-size: 20px; padding: 10px;');
+  console.log('App.tsx is executing - React hooks should be available');
+  
   const [currentView, setCurrentView] = useState<'record' | 'history'>('record');
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [calls, setCalls] = useState<CallData[]>([]);
+
+  console.log('%c📊 APP STATE INITIALIZED', 'background: blue; color: white; font-size: 16px; padding: 5px;');
+  console.log('Current state:', { currentView, isRecording, isProcessing, recordingTime, calls: calls.length });
 
   // Load calls from localStorage on mount
   useEffect(() => {
