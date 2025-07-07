@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔧 New API Key Test</title>
+    <style>
+        body { 
+            font-family: monospace; 
+            padding: 20px; 
+            background: #1a1a1a; 
+            color: #00ff00; 
+            max-width: 1200px; 
+            margin: 0 auto; 
+        }
+        .test-section { 
+            margin: 20px 0; 
+            padding: 15px; 
+            border: 1px solid #333; 
+            border-radius: 8px; 
+            background: #2a2a2a; 
+        }
+        button { 
+            background: #007bff; 
+            color: white; 
+            border: none; 
+            padding: 10px 20px; 
+            margin: 5px; 
+            border-radius: 5px; 
+            cursor: pointer; 
+        }
+        button:hover { background: #0056b3; }
+        .error { color: #ff4444; }
+        .success { color: #00ff88; }
+        .info { color: #88ccff; }
+        pre { 
+            background: #111; 
+            padding: 10px; 
+            border-radius: 5px; 
+            overflow-x: auto; 
+            font-size: 12px; 
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 New API Key Test (SK55096...)</h1>
+    
+    <div class="test-section">
+        <h2>📋 Environment Check</h2>
+        <button onclick="checkEnvironment()">Check Current Environment</button>
+        <div id="environment-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>🧪 Generate Token with New API Key</h2>
+        <button onclick="testNewApiKey()">Test New API Key Token</button>
+        <div id="api-key-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>📱 Test Device Registration with New Token</h2>
+        <button onclick="testDeviceWithNewToken()">Test Device Registration</button>
+        <div id="device-test-result"></div>
+    </div>
+
+    <script src="twilio-local.min.js"></script>
+    <script>
+        function log(message, type = 'info') {
+            const timestamp = new Date().toISOString();
+            const className = type === 'error' ? 'error' : type === 'success' ? 'success' : 'info';
+            console.log(`[${timestamp}] ${message}`);
+            
+            // Also display in UI if we have active result div
+            const activeDiv = document.querySelector('.test-section:last-child div[id$="-result"]');
+            if (activeDiv) {
+                activeDiv.innerHTML += `<div class="${className}">[${timestamp}] ${message}</div>`;
+            }
+        }
+
+        async function checkEnvironment() {
+            const resultDiv = document.getElementById('environment-result');
+            resultDiv.innerHTML = '<div class="info">🔍 Checking current environment...</div>';
+            
+            try {
+                const response = await fetch('/.netlify/functions/twilio-account-diagnostic');
+                const data = await response.json();
+                
+                resultDiv.innerHTML = `
+                    <div class="success">✅ Environment check complete</div>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+                
+                log('Environment check complete', 'success');
+                log(`Current API Key: ${data.checks?.environmentVariables?.apiKey?.value || 'Not found'}`, 'info');
+                
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ Environment check failed: ${error.message}</div>`;
+                log(`Environment check failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function testNewApiKey() {
+            const resultDiv = document.getElementById('api-key-result');
+            resultDiv.innerHTML = '<div class="info">🧪 Testing new API key token generation...</div>';
+            
+            try {
+                // This should use the NEW API key if environment is updated
+                const response = await fetch('/.netlify/functions/twilio-token-final', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ identity: `new_api_test_${Date.now()}` })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultDiv.innerHTML = `
+                        <div class="success">✅ Token generated successfully!</div>
+                        <div class="info">Token length: ${data.token.length}</div>
+                        <div class="info">Method: ${data.method}</div>
+                        <div class="info">Account: ${data.account || 'Unknown'}</div>
+                        <div class="info">App SID: ${data.debug?.appSid || 'Unknown'}</div>
+                        <pre>${JSON.stringify(data.debug, null, 2)}</pre>
+                    `;
+                    
+                    log('✅ New API key token generated successfully!', 'success');
+                    log(`Token length: ${data.token.length}`, 'info');
+                    log(`Method: ${data.method}`, 'info');
+                    
+                    // Store token for device test
+                    window.newApiKeyToken = data.token;
+                    
+                } else {
+                    throw new Error(data.error || 'Token generation failed');
+                }
+                
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ New API key test failed: ${error.message}</div>`;
+                log(`New API key test failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function testDeviceWithNewToken() {
+            const resultDiv = document.getElementById('device-test-result');
+            resultDiv.innerHTML = '<div class="info">📱 Testing device registration with new API key token...</div>';
+            
+            if (!window.newApiKeyToken) {
+                resultDiv.innerHTML = '<div class="error">❌ No new API key token available. Run token test first.</div>';
+                return;
+            }
+            
+            try {
+                log('🔧 Testing with new API key token...', 'info');
+                log(`✅ Twilio SDK loaded locally: ${typeof Twilio}`, 'success');
+                
+                // Create device with new token
+                const device = new Twilio.Device(window.newApiKeyToken, {
+                    logLevel: 'debug',
+                    codecPreferences: ['pcmu', 'opus'],
+                    edge: 'ashburn'
+                });
+                
+                log('🔧 Creating Twilio Device with new API key token...', 'info');
+                
+                // Set up event listeners
+                device.on('registered', () => {
+                    log('✅ SUCCESS! Device registered with new API key!', 'success');
+                    resultDiv.innerHTML += '<div class="success">🎉 SUCCESS! Device registered with new API key!</div>';
+                    
+                    // Test making a call
+                    setTimeout(() => {
+                        device.disconnect();
+                        device.destroy();
+                        log('🧹 Device cleaned up', 'info');
+                    }, 2000);
+                });
+                
+                device.on('error', (error) => {
+                    log(`❌ Device error: ${error.message} (${error.code})`, 'error');
+                    log(`Error code: ${error.code}`, 'error');
+                    log(`Error name: ${error.name}`, 'error');
+                    
+                    resultDiv.innerHTML += `
+                        <div class="error">❌ Device registration failed</div>
+                        <div class="error">Error: ${error.message}</div>
+                        <div class="error">Code: ${error.code}</div>
+                        <div class="error">Name: ${error.name}</div>
+                    `;
+                });
+                
+                device.on('registering', () => {
+                    log('🔄 Device registering with new API key...', 'info');
+                    resultDiv.innerHTML += '<div class="info">🔄 Device registering with new API key...</div>';
+                });
+                
+                device.on('unregistered', () => {
+                    log('📴 Device unregistered', 'info');
+                });
+                
+                // Start registration
+                log('🚀 Starting device registration with new API key...', 'info');
+                device.register();
+                
+            } catch (error) {
+                log(`❌ Device test failed: ${error.message}`, 'error');
+                resultDiv.innerHTML += `<div class="error">❌ Device test failed: ${error.message}</div>`;
+            }
+        }
+
+        // Auto-load environment on page load
+        window.addEventListener('load', () => {
+            log('🔬 New API Key Test Page Loaded', 'success');
+            log(`✅ Twilio SDK loaded successfully from local file!`, 'success');
+            log(`SDK Version: ${typeof Twilio !== 'undefined' ? Twilio.version || 'undefined' : 'Not loaded'}`, 'info');
+        });
+    </script>
+</body>
+</html> 
