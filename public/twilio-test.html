@@ -20,6 +20,7 @@
     <div>
         <button onclick="testToken()">🧪 Test Token Generation</button>
         <button onclick="testDevice()">📱 Test Device Registration</button>
+        <button onclick="testDifferentEdges()">🌍 Test Different Edges</button>
         <button onclick="clearLogs()">🧹 Clear Logs</button>
     </div>
 
@@ -28,6 +29,22 @@
     <script src="https://sdk.twilio.com/js/voice/releases/2.14.0/twilio.min.js"></script>
     <script>
         let device = null;
+        
+        // Check SDK loading on page load
+        window.addEventListener('load', function() {
+            if (typeof Twilio === 'undefined') {
+                log('❌ Twilio SDK failed to load from CDN', 'error');
+                log('Trying alternative CDN...', 'info');
+                const script = document.createElement('script');
+                script.src = 'https://sdk.twilio.com/js/voice/2.14.0/twilio.min.js';
+                script.onload = () => log('✅ Alternative CDN loaded successfully', 'success');
+                script.onerror = () => log('❌ Alternative CDN also failed', 'error');
+                document.head.appendChild(script);
+            } else {
+                log('✅ Twilio SDK loaded successfully', 'success');
+                log(`SDK Version: ${Twilio.VERSION}`, 'info');
+            }
+        });
         
         function log(message, type = 'info') {
             const logsDiv = document.getElementById('logs');
@@ -127,6 +144,60 @@
             } catch (error) {
                 log(`❌ Device test failed: ${error.message}`, 'error');
                 log(`Error stack: ${error.stack}`, 'error');
+            }
+        }
+        
+        async function testDifferentEdges() {
+            log('🌍 Testing different edge locations...', 'info');
+            
+            const edges = ['sydney', 'dublin', 'singapore', 'tokyo', 'ashburn'];
+            
+            for (const edge of edges) {
+                try {
+                    log(`🔄 Testing edge: ${edge}`, 'info');
+                    
+                    if (device) {
+                        device.destroy();
+                        device = null;
+                    }
+                    
+                    const token = await testToken();
+                    
+                    if (typeof Twilio === 'undefined') {
+                        throw new Error('Twilio SDK not loaded');
+                    }
+                    
+                    const testDevice = new Twilio.Device(token, {
+                        logLevel: 'debug',
+                        edge: edge
+                    });
+                    
+                    // Use a promise to handle the async registration
+                    const registrationResult = await new Promise((resolve, reject) => {
+                        const timeout = setTimeout(() => {
+                            reject(new Error(`Registration timeout for edge ${edge}`));
+                        }, 10000); // 10 second timeout
+                        
+                        testDevice.on('registered', () => {
+                            clearTimeout(timeout);
+                            resolve('success');
+                        });
+                        
+                        testDevice.on('error', (error) => {
+                            clearTimeout(timeout);
+                            reject(error);
+                        });
+                        
+                        testDevice.register();
+                    });
+                    
+                    log(`🎉 SUCCESS with edge ${edge}!`, 'success');
+                    testDevice.destroy();
+                    break; // If successful, stop testing other edges
+                    
+                } catch (error) {
+                    log(`❌ Edge ${edge} failed: ${error.message}`, 'error');
+                }
             }
         }
         
