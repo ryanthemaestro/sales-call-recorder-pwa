@@ -1,1 +1,8 @@
-Deploy trigger Mon Jul  7 08:27:26 AM EDT 2025
+Deployment trigger for new test files - 2025-07-07 12:54 UTC
+
+Added:
+- test-new-api-key.html
+- twilio-local.min.js 
+- twilio-token-official.js
+
+Purpose: Testing new API key resolution for JWT invalid error
