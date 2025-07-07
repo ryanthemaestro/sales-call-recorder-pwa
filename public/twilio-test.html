@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Twilio Voice SDK Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .log { background: #f0f0f0; padding: 10px; margin: 10px 0; white-space: pre-wrap; font-family: monospace; }
+        .error { background: #ffe6e6; border-left: 4px solid #ff0000; }
+        .success { background: #e6ffe6; border-left: 4px solid #00ff00; }
+        .info { background: #e6f3ff; border-left: 4px solid #0066cc; }
+        button { padding: 10px 20px; margin: 5px; }
+    </style>
+</head>
+<body>
+    <h1>🔧 Twilio Voice SDK Minimal Test</h1>
+    <p>This is a completely isolated test of the Twilio Voice SDK.</p>
+    
+    <div>
+        <button onclick="testToken()">🧪 Test Token Generation</button>
+        <button onclick="testDevice()">📱 Test Device Registration</button>
+        <button onclick="clearLogs()">🧹 Clear Logs</button>
+    </div>
+
+    <div id="logs"></div>
+
+    <script src="https://sdk.twilio.com/js/voice/releases/2.14.0/twilio.min.js"></script>
+    <script>
+        let device = null;
+        
+        function log(message, type = 'info') {
+            const logsDiv = document.getElementById('logs');
+            const logDiv = document.createElement('div');
+            logDiv.className = `log ${type}`;
+            logDiv.textContent = `[${new Date().toISOString()}] ${message}`;
+            logsDiv.appendChild(logDiv);
+            logsDiv.scrollTop = logsDiv.scrollHeight;
+            console.log(message);
+        }
+        
+        function clearLogs() {
+            document.getElementById('logs').innerHTML = '';
+        }
+        
+        async function testToken() {
+            log('🧪 Testing token generation...', 'info');
+            
+            try {
+                const response = await fetch('/.netlify/functions/twilio-token-final', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ identity: `test_minimal_${Date.now()}` })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                log('✅ Token generation successful!', 'success');
+                log(`Token length: ${data.token.length}`, 'info');
+                log(`App SID: ${data.debug.payloadAppSid}`, 'info');
+                log(`Issuer: ${data.debug.payloadIss}`, 'info');
+                log(`Subject: ${data.debug.payloadSub}`, 'info');
+                
+                return data.token;
+                
+            } catch (error) {
+                log(`❌ Token generation failed: ${error.message}`, 'error');
+                throw error;
+            }
+        }
+        
+        async function testDevice() {
+            log('📱 Testing Twilio Device registration...', 'info');
+            
+            try {
+                // Clean up existing device
+                if (device) {
+                    log('🧹 Cleaning up existing device...', 'info');
+                    device.destroy();
+                    device = null;
+                }
+                
+                // Get fresh token
+                const token = await testToken();
+                
+                log('🔧 Creating new Twilio Device...', 'info');
+                // Check if Twilio SDK is loaded
+                if (typeof Twilio === 'undefined') {
+                    throw new Error('Twilio SDK not loaded - check CDN connection');
+                }
+                
+                log(`Twilio SDK version: ${Twilio.VERSION}`, 'info');
+                
+                // Create device with minimal options
+                device = new Twilio.Device(token, {
+                    logLevel: 'debug',
+                    edge: 'ashburn',
+                    codecPreferences: ['opus', 'pcmu']
+                });
+                
+                // Add event listeners
+                device.on('registered', () => {
+                    log('🎉 SUCCESS! Device registered successfully!', 'success');
+                });
+                
+                device.on('error', (error) => {
+                    log(`❌ Device error: ${error.message}`, 'error');
+                    log(`Error code: ${error.code}`, 'error');
+                    log(`Error details: ${JSON.stringify(error, null, 2)}`, 'error');
+                });
+                
+                device.on('unregistered', () => {
+                    log('📴 Device unregistered', 'info');
+                });
+                
+                device.on('registering', () => {
+                    log('🔄 Device registering...', 'info');
+                });
+                
+                // Attempt registration
+                log('🚀 Starting device registration...', 'info');
+                await device.register();
+                
+            } catch (error) {
+                log(`❌ Device test failed: ${error.message}`, 'error');
+                log(`Error stack: ${error.stack}`, 'error');
+            }
+        }
+        
+        // Auto-run tests on page load
+        log('🔬 Minimal Twilio Test Page Loaded', 'info');
+        log('Click buttons above to run tests', 'info');
+    </script>
+</body>
+</html> 

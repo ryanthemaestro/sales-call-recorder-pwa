@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
-import CallRecorder from './components/CallRecorder';
+import TwilioIntegration from './components/TwilioIntegration';
 import CallHistory from './components/CallHistory';
 import InstallPrompt from './components/InstallPrompt';
+import MinimalTest from './components/MinimalTest';
 
 // Call data interface
 interface CallData {
@@ -47,7 +48,7 @@ const App: React.FC = () => {
   console.log('%c🚀 APP COMPONENT LOADED!', 'background: navy; color: white; font-size: 20px; padding: 10px;');
   console.log('App.tsx is executing - React hooks should be available');
   
-  const [currentView, setCurrentView] = useState<'record' | 'history'>('record');
+  const [currentView, setCurrentView] = useState<'record' | 'history' | 'test'>('record');
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
@@ -158,6 +159,12 @@ const App: React.FC = () => {
           >
             History ({calls.length})
           </button>
+          <button 
+            className={`nav-button ${currentView === 'test' ? 'active' : ''}`}
+            onClick={() => setCurrentView('test')}
+          >
+            🔧 Test
+          </button>
         </div>
       </div>
     </header>
@@ -183,13 +190,16 @@ const App: React.FC = () => {
               {renderStatusBar()}
             </div>
             
-            <CallRecorder 
-              isRecording={isRecording}
-              isProcessing={isProcessing}
-              onRecordingChange={setIsRecording}
-              onProcessingChange={setIsProcessing}
-              recordingTime={recordingTime}
-              onCallComplete={handleCallComplete}
+            <TwilioIntegration 
+              onCallEnd={(callId, duration) => {
+                // Convert to the format expected by handleCallComplete
+                const audioUrl = `call_${callId}_recording.wav`;
+                handleCallComplete(audioUrl, duration);
+              }}
+              onError={(error) => {
+                console.error('Twilio error:', error);
+                alert(`Call error: ${error}`);
+              }}
             />
           </div>
         );
@@ -207,6 +217,9 @@ const App: React.FC = () => {
             <CallHistory calls={calls} />
           </div>
         );
+        
+      case 'test':
+        return <MinimalTest />;
         
       default:
         return null;

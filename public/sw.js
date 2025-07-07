@@ -1,0 +1,1 @@
+const CACHE_NAME = 'sales-call-recorder-v1.2.1'; // Updated for JWT fix 

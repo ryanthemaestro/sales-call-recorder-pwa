@@ -1,8 +1,8 @@
 {
   "name": "netlify-functions",
   "version": "1.0.0",
-  "description": "Netlify serverless functions for Sales Call Recorder PWA",
+  "description": "Netlify Functions for Sales Call Recorder",
   "dependencies": {
-    "twilio": "^5.7.2"
+    "twilio": "^5.3.5"
   }
 } 
